@@ -19,6 +19,11 @@ word:	TOKEN_REF
 	;
 */
 
+PARENT_REF : 'parent::';
+
+COND_TEXT_EQ_START : '[text()=';
+COND_TEXT_EQ_END   : ']';
+
 ANYWHERE : '//' ;
 ROOT	 : '/' ;
 WILDCARD : '*' ;

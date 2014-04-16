@@ -102,6 +102,7 @@ public class XPath {
 		List<Token> tokens = tokenStream.getTokens();
 //		System.out.println("path="+path+"=>"+tokens);
 		List<XPathElement> elements = new ArrayList<XPathElement>();
+		XPathElement currentElement = null;
 		int n = tokens.size();
 		int i=0;
 loop:
@@ -109,6 +110,26 @@ loop:
 			Token el = tokens.get(i);
 			Token next = null;
 			switch ( el.getType() ) {
+				case XPathLexer.COND_TEXT_EQ_START:
+					i++;
+					next = tokens.get(i);
+					if (next.getType() != XPathLexer.STRING)
+						throw new IllegalArgumentException("Unsupported conditonal token: " + next.getText());
+					
+					String filterText = next.getText();
+					filterText = filterText.substring(1, filterText.length() - 1);
+					if (currentElement instanceof XPathFiltering) {
+						((XPathFiltering) currentElement).setTextFilter(filterText);
+					} else {
+						throw new IllegalArgumentException("Element does not support filtering: " + currentElement.nodeName);
+					}
+					i++;
+					next = tokens.get(i);
+					if (next.getType() != XPathLexer.COND_TEXT_EQ_END)
+						throw new IllegalArgumentException("Unterminated conditional token: " + next.getText());
+					i++;
+					break;
+					
 				case XPathLexer.ROOT :
 				case XPathLexer.ANYWHERE :
 					boolean anywhere = el.getType() == XPathLexer.ANYWHERE;
@@ -119,16 +140,33 @@ loop:
 						i++;
 						next = tokens.get(i);
 					}
-					XPathElement pathElement = getXPathElement(next, anywhere);
-					pathElement.invert = invert;
-					elements.add(pathElement);
+					
+					if (next.getType() == XPathLexer.PARENT_REF) {
+						Token followingToken = tokens.get(i + 1);
+						if (followingToken.getType() == XPathLexer.RULE_REF) {
+							int parentFilterRuleId = parser.getRuleIndex(followingToken.getText());
+							if (parentFilterRuleId < 0)
+								throw new IllegalArgumentException("Not a valid rule: " + followingToken.getText());		
+							elements.add(currentElement = new XPathParentElement(parentFilterRuleId));
+							i++;
+						} else if (followingToken.getType() == XPathLexer.WILDCARD) {
+							elements.add(currentElement = new XPathParentElement(-1));
+							i++;
+						} else {
+							elements.add(currentElement = new XPathParentElement(-1));
+						}
+					} else {
+						XPathElement pathElement = getXPathElement(next, anywhere);
+						pathElement.invert = invert;
+						elements.add(currentElement = pathElement);
+					}
 					i++;
 					break;
 
 				case XPathLexer.TOKEN_REF :
 				case XPathLexer.RULE_REF :
 				case XPathLexer.WILDCARD :
-					elements.add( getXPathElement(el, false) );
+					elements.add(currentElement = getXPathElement(el, false));
 					i++;
 					break;
 
