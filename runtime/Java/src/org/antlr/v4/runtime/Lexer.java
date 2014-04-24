@@ -384,12 +384,62 @@ public abstract class Lexer extends Recognizer<Integer, LexerATNSimulator>
 
 	public void notifyListeners(LexerNoViableAltException e) {
 		String text = _input.getText(Interval.of(_tokenStartCharIndex, _input.index()));
-		String msg = "token recognition error at: '"+ getErrorDisplay(text) + "'";
+		StringBuilder sb = new StringBuilder("token recognition error at: '"+ getErrorDisplay(text) + "' (");
+		for (char c : text.toCharArray()) {
+			sb.append(" " + getANTLRCharLiteralForChar(c));
+		}
+		sb.append(" )");
 
 		ANTLRErrorListener listener = getErrorListenerDispatch();
-		listener.syntaxError(this, null, _tokenStartLine, _tokenStartCharPositionInLine, msg, e);
+		listener.syntaxError(this, null, _tokenStartLine, _tokenStartCharPositionInLine, sb.toString(), e);
 	}
 
+	//////////////////////////////////////////////////
+	// Taken from CharSupport
+	public static int ANTLRLiteralEscapedCharValue[] = new int[255];
+	public static String ANTLRLiteralCharValueEscape[] = new String[255];
+	static {
+		ANTLRLiteralEscapedCharValue['n'] = '\n';
+		ANTLRLiteralEscapedCharValue['r'] = '\r';
+		ANTLRLiteralEscapedCharValue['t'] = '\t';
+		ANTLRLiteralEscapedCharValue['b'] = '\b';
+		ANTLRLiteralEscapedCharValue['f'] = '\f';
+		ANTLRLiteralEscapedCharValue['\\'] = '\\';
+		ANTLRLiteralEscapedCharValue['\''] = '\'';
+		ANTLRLiteralEscapedCharValue['"'] = '"';
+		ANTLRLiteralCharValueEscape['\n'] = "\\n";
+		ANTLRLiteralCharValueEscape['\r'] = "\\r";
+		ANTLRLiteralCharValueEscape['\t'] = "\\t";
+		ANTLRLiteralCharValueEscape['\b'] = "\\b";
+		ANTLRLiteralCharValueEscape['\f'] = "\\f";
+		ANTLRLiteralCharValueEscape['\\'] = "\\\\";
+		ANTLRLiteralCharValueEscape['\''] = "\\'";
+	}
+	public static String getANTLRCharLiteralForChar(int c) {
+		if ( c< Lexer.MIN_CHAR_VALUE ) {
+			return "'<INVALID>'";
+		}
+		if ( c<ANTLRLiteralCharValueEscape.length && ANTLRLiteralCharValueEscape[c]!=null ) {
+			return '\''+ANTLRLiteralCharValueEscape[c]+'\'';
+		}
+		if ( Character.UnicodeBlock.of((char)c)==Character.UnicodeBlock.BASIC_LATIN &&
+			 !Character.isISOControl((char)c) ) {
+			if ( c=='\\' ) {
+				return "'\\\\'";
+			}
+			if ( c=='\'') {
+				return "'\\''";
+			}
+			return '\''+Character.toString((char)c)+'\'';
+		}
+		// turn on the bit above max "\uFFFF" value so that we pad with zeros
+		// then only take last 4 digits
+		String hex = Integer.toHexString(c|0x10000).toUpperCase().substring(1,5);
+		String unicodeStr = "'\\u"+hex+"'";
+		return unicodeStr;
+	}
+	////////////////////////////////////////////////////
+	
 	public String getErrorDisplay(String s) {
 		StringBuilder buf = new StringBuilder();
 		for (char c : s.toCharArray()) {
