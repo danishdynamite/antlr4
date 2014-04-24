@@ -9,23 +9,28 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class XPathRuleElement extends XPathElement {
+public class XPathRuleElement extends XPathElement implements XPathFiltering {
 	protected int ruleIndex;
+	protected String filterText;
+	
 	public XPathRuleElement(String ruleName, int ruleIndex) {
 		super(ruleName);
 		this.ruleIndex = ruleIndex;
 	}
 
 	@Override
+	public void setTextFilter(String text) {
+		this.filterText = text;
+	}
+	
+	@Override
 	public Collection<ParseTree> evaluate(ParseTree t) {
-				// return all children of t that match nodeName
 		List<ParseTree> nodes = new ArrayList<ParseTree>();
 		for (Tree c : Trees.getChildren(t)) {
-			if ( c instanceof ParserRuleContext ) {
-				ParserRuleContext ctx = (ParserRuleContext)c;
-				if ( (ctx.getRuleIndex() == ruleIndex && !invert) ||
-					 (ctx.getRuleIndex() != ruleIndex && invert) )
-				{
+			if (c instanceof ParserRuleContext) {
+				ParserRuleContext ctx = (ParserRuleContext) c;
+				boolean matched = ctx.getRuleIndex() == ruleIndex && (filterText == null || ctx.getText().equals(filterText));
+				if ((matched && !invert) || (!matched && invert)) {
 					nodes.add(ctx);
 				}
 			}
